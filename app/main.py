@@ -16,7 +16,7 @@ def handle_command(client: socket.socket):
             )
             response = echo.handle_command(message_text)
         else:
-            response = "Unknown command"
+            response = b"Unknown command"
         client.sendall(response.encode("utf-8") if isinstance(response, str) else response)
 
 def main():
