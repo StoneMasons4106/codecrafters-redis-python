@@ -1,14 +1,24 @@
 import socket  # noqa: F401
 import threading
+from app.commands import ping, echo
+import asyncio
 
 BUF_SIZE = 4096
 
-def handle_command(client: socket.socket):
+async def handle_command(client: socket.socket):
     while chunk := client.recv(BUF_SIZE):
-        if chunk == b"":
-            break
-        # print(f"[CHUNK] ```\n{chunk.decode()}\n```")
-        client.sendall(b"+PONG\r\n")
+        if chunk == b"PING":
+            response = await ping.handle_command()
+        elif chunk == b"ECHO" and len(chunk) > 1:
+            message_text = (
+                chunk[1].decode("utf-8")
+                if isinstance(chunk[1], bytes)
+                else chunk[1]
+            )
+            response = await echo.handle_command(message_text)
+        else:
+            response = await "Unknown command"
+        client.sendall(response.encode("utf-8") if isinstance(response, str) else response)
 
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
