@@ -1,74 +1,152 @@
-class RespParser:
-    def parse(self, data: bytes) -> list[bytes | None]:
-        """
-        Turn a chunk of RESP bytes into a list of command parts (e.g., ["SET", "foo", "bar"]).
-        RESP command look like: *3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n
-        """
-        if not data:
-            return []
-        lines = data.split(b"\r\n")
-        self._check_not_empty(lines)
+BUF_SIZE = 4096
+SEPARATOR = b"\r\n"
 
-        lines = [line for line in lines if line]
-        num_parts = self._parse_array_header(lines[0])
-        command = []
-        current_line = 1  # Start after *n
 
-        for _ in range(num_parts):
-            if current_line >= len(lines):
-                raise ValueError("Ran out of lines before finishing the command")
-            part_length = self._parse_bulk_string_length(lines[current_line])
-            current_line += 1
+def word(buf, pos):
+    if len(buf) < pos:
+        return None
 
-            if part_length == -1:
-                command.append(None)  # Null bulk string, no data line
+    end = buf[pos:].find(b"\r")
+    if end + 1 < len(buf):
+        return (pos + end + 2, buf[pos : pos + end])
+    return None
+
+
+def simple_string(buf, pos):
+    string_word = word(buf, pos)
+    if string_word:
+        # TODO add byte to str conversion?
+        return (string_word[0], string_word[1].decode())
+    return None
+
+
+def integer(buf, pos):
+    int_word = word(buf, pos)
+    if int_word:
+        # TODO add byte to int conversion
+        return (int_word[0], int(int_word[1].decode()))
+    return None
+
+
+def bulk_string(buf, pos):
+    bulk_string_len = integer(buf, pos)
+    if bulk_string_len:
+        (pos_next, size) = bulk_string_len
+        if size == -1:
+            return (pos_next, b"")
+        if size >= 0:
+            total_size = pos_next + size
+            if len(buf) < total_size + 2:
+                return None
+            bulk_s = buf[pos_next:total_size]
+            return (total_size + 2, bulk_s.decode())
+    return None
+
+
+def parse(buf, pos):
+    if len(buf) == 0:
+        return None
+
+    match buf[pos : pos + 1]:
+        case b"+":
+            return simple_string(buf, pos + 1)
+        # case b'-':
+        #     return error(buf, pos + 1),
+        case b"$":
+            return bulk_string(buf, pos + 1)
+        case b":":
+            return integer(buf, pos + 1)
+        case b"*":
+            return array(buf, pos + 1)
+        case _:
+            return None
+            # raise Exception("unknown param")
+
+
+def array(buf, pos):
+    array_len = integer(buf, pos)
+    if array_len is None:
+        return None
+    (pos, num_elements) = array_len
+    if num_elements == -1:
+        return (pos, [])
+    if num_elements >= 0:
+        values = []
+        curr_pos = pos
+        for _ in range(0, num_elements):
+            parse_result = parse(buf, curr_pos)
+            if parse_result:
+                (new_pos, value) = parse_result
+                curr_pos = new_pos
+                values.append(value)
             else:
-                if current_line >= len(lines):
-                    raise ValueError("Missing the data after the length line")
-                command.append(
-                    self._parse_bulk_string(lines[current_line], part_length)
-                )
-                current_line += 1
+                return None
+        return (curr_pos, values)
+    return None
 
-        return command
 
-    def _check_not_empty(self, lines: list[bytes]) -> None:
-        """Raise an error if the input lines are empty."""
-        if not lines or lines[0] == b"":
-            raise ValueError("Expected a RESP array starting with *, but got nothing")
+def en_string(value, buf):
+    res = b"+" + value.encode() + b"\r\n"
+    return buf + res
 
-    def _parse_array_header(self, first_line: bytes) -> int:
-        """Extract the number of parts from the *n line (e.g., *3 -> 3)."""
-        if not first_line.startswith(b"*"):
-            raise ValueError(
-                f"Expected a RESP array starting with *, but got: {first_line}"
-            )
-        try:
-            return int(first_line[1:])
-        except ValueError:
-            raise ValueError(
-                f"Expected a number after * (like *3), but got: {first_line}"
-            )
 
-    def _parse_bulk_string_length(self, length_line: bytes) -> int:
-        """Get the length from a $n line (e.g., $3 -> 3)."""
-        if not length_line.startswith(b"$"):
-            raise ValueError(f"Expected a length like $3, but got: {length_line}")
-        try:
-            return int(length_line[1:])
-        except ValueError:
-            raise ValueError(
-                f"Expected a number after $ (like $3), but got: {length_line}"
-            )
+def en_bulk_string(value, buf):
+    res = b"$" + str(len(value)).encode() + b"\r\n" + value.encode() + b"\r\n"
+    return buf + res
 
-    def _parse_bulk_string(
-        self, data_line: bytes, expected_length: int
-    ) -> bytes | None:
-        """Extract the string data, checking it matches the expected length."""
-        if expected_length == -1:
-            return None  # Null bulk string
-        if len(data_line) != expected_length:
-            raise ValueError(
-                f"Expected {expected_length} bytes, but got {len(data_line)} in: {data_line}"
-            )
-        return data_line
+
+def en_int(value, buf):
+    res = b":" + str(value).encode() + b"\r\n"
+    return buf + res
+
+
+def en_array(value, buf):
+    res = b"*" + str(len(value)).encode() + b"\r\n"
+    for item in value:
+        res = encode(item, res)
+    return buf + res
+
+
+def encode(value, buf=b""):
+    match value:
+        case int():
+            return en_int(value, buf)
+        case str():
+            return en_bulk_string(value, buf)
+        case list():
+            return en_array(value, buf)
+        case _:
+            return None
+
+
+def encode_simple(value, buf=b""):
+    match value:
+        case int():
+            return en_int(value, buf)
+        case str():
+            return en_string(value, buf)
+        case list():
+            return en_array(value, buf)
+        case _:
+            return None
+
+
+def test_parse_redis_command():
+    assert parse(b"$4\r\nECHO\r\n", 0)[1] == "ECHO"
+    assert parse(b":4\r\n", 0)[1] == 4
+    assert parse(b"*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n", 0)[1] == ["ECHO", "hey"]
+    assert parse(b"*2\r\n$7\r\nCOMMAND\r\n$4\r\nDOCS\r\n", 0)[1] == ["COMMAND", "DOCS"]
+    assert parse(b"*1\r\n$4\r\nPING\r\n", 0)[1] == ["PING"]
+
+
+def test_encode_redis_command():
+    assert encode("ECHO", b"") == b"$4\r\nECHO\r\n"
+    assert encode(4, b"") == b":4\r\n"
+    assert encode(["ECHO", "hey"], b"") == b"*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n"
+    assert (
+        encode(["COMMAND", "DOCS"], b"") == b"*2\r\n$7\r\nCOMMAND\r\n$4\r\nDOCS\r\n"
+    ), 0
+
+
+def test_encode_simple_redis_command():
+    assert encode_simple("PONG") == b"+PONG\r\n"

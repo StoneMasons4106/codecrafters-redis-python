@@ -1,90 +1,45 @@
-import socket  # noqa: F401
-from app.commands import ping, echo
-from .parser.parser import RespParser
-from .resp2 import format_response, format_error
+import re
 import asyncio
+from .parser.parser import parse, encode, encode_simple
 
-async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    data = await reader.read(4096)  # Read up to 4096 bytes from the stream
-    resp_parser = RespParser()
-    parser = resp_parser.parse(data)
+async def handle_connection(reader, writer):
     addr = writer.get_extra_info("peername")
-    print(f"New connection from {addr}")
-
-    try:
-        while True:
-            try:
-                # Parse the incoming message
-                message = await parser.parse()
-                print(f"Received message: {message}")
-
-                if not message:
-                    break
-
-                # Convert command to bytes for comparison
-                command = (
-                    message[0].upper()
-                    if isinstance(message, list) and len(message) > 0
-                    else await b""
-                )
-
-                try:
-                    # Process the command
-                    response = None
-                    if command == b"PING":
-                        response = await ping.handle_command()
-                    elif command == b"ECHO" and len(message) > 1:
-                        # Convert message[1] to string if it's bytes
-                        message_text = (
-                            message[1].decode("utf-8")
-                            if isinstance(message[1], bytes)
-                            else message[1]
-                        )
-                        response = await echo.handle_command(message_text)
-                    else:
-                        response = await b"+Unknown command\r\n"
-
-                    # Send the response if we have one
-                    if response is not None:
-                        # Format the response if it's not already bytes
-                        if not isinstance(response, (bytes, bytearray)):
-                            response = format_response(response)
-                        writer.write(response)
-                        await writer.drain()
-
-                except Exception as e:
-                    print(f"Error processing command: {e}")
-                    writer.write(format_error(f"Error: {str(e)}"))
-                    await writer.drain()
-
-            except asyncio.IncompleteReadError:
-                print("Client disconnected")
-                break
-            except ConnectionResetError:
-                print("Connection reset by peer")
-                break
-            except Exception as e:
-                print(f"Error handling connection: {e}")
-                writer.write(b"-ERR internal error\r\n")
+    print(f"Connection from {addr}")
+    while True:
+        line = await reader.read(100)
+        if line == b"":
+            break
+        parsed = parse(line, 0)
+        if parsed:
+            (_, res) = parsed
+            command = res[0]
+            if command == "COMMAND":
+                # Respond with empty map for initial COMMAND request
+                writer.write(b"%0\r\n")
                 await writer.drain()
-                break
+                continue
+            if re.search("ECHO", command, flags=re.IGNORECASE):
+                # reply = b"$" + str(len(value)).encode() + b"\r\n" + value + b"\r\n"
+                value = res[1]
+                reply = encode(value)
+                writer.write(reply)
+                await writer.drain()
+            if re.search("PING", command, flags=re.IGNORECASE):
+                reply = encode_simple("PONG")
+                writer.write(reply)
+                await writer.drain()
+    writer.close()
+    await writer.wait_closed()
 
-    finally:
-        print(f"Closing connection from {addr}")
-        writer.close()
-        await writer.wait_closed()
-
-def main():
+async def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
     print("Logs from your program will appear here!")
 
     # Uncomment this to pass the first stage
     #
-    server_socket = socket.create_server(("localhost", 6379))
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    while True:
-        client_socket, client_addr = server_socket.accept()
-        asyncio.run(handle_connection(client_socket, client_addr))
+    server = await asyncio.start_server(handle_connection, host="localhost", port=6379)
+    async with server:
+        await server.serve_forever()
 
 
 if __name__ == "__main__":
