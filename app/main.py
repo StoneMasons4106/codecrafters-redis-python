@@ -41,7 +41,7 @@ async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.Stream
                         )
                         response = await echo.handle_command(message_text)
                     else:
-                        response = b"+Unknown command\r\n"
+                        response = await b"+Unknown command\r\n"
 
                     # Send the response if we have one
                     if response is not None:
