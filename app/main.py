@@ -83,7 +83,7 @@ def main():
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     while True:
         client_socket, client_addr = server_socket.accept()
-        threading.Thread(target=asyncio.run(handle_connection), args=(client_socket, client_addr,)).start()
+        threading.Thread(target=asyncio.run, args=(handle_connection(client_socket, client_addr,))).start()
 
 
 if __name__ == "__main__":
