@@ -79,7 +79,8 @@ def main():
 
     # Uncomment this to pass the first stage
     #
-    server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
+    server_socket = socket.create_server(("localhost", 6380))
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     while True:
         client_socket, client_addr = server_socket.accept()
         threading.Thread(target=handle_connection, args=(client_socket, client_addr,)).start()
