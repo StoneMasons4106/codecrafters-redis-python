@@ -51,7 +51,7 @@ class CommandProcessor:
         command_keys_list = list(self.commands.keys())
         found = False
         for item in command_keys_list:
-            if input[2].upper() == item:
+            if str(input[2].upper()) == str(item):
                 found = True
                 break
         if not found:
