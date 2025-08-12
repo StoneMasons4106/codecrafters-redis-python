@@ -1,11 +1,11 @@
 import socket  # noqa: F401
 from app.commands import ping, echo
-from app.parser.parser import RespParser
+from .parser.parser import parse as RespParser
 from .resp2 import format_response, format_error
 import asyncio
 
 async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    parser = RespParser.parse(reader)
+    parser = RespParser(reader)
     addr = writer.get_extra_info("peername")
     print(f"New connection from {addr}")
 
