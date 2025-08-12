@@ -1,6 +1,6 @@
 import asyncio
 from .commands.command_processor import CommandProcessor
-from data_oracle import DataOracle
+from .data_oracle import DataOracle
 
 async def handle_connection(reader, writer):
     addr = writer.get_extra_info("peername")
