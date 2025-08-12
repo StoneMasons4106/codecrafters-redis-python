@@ -48,13 +48,7 @@ class CommandProcessor:
             # return "+PONG\r\n"
             return "PONG"
         assert len(input) > 0
-        command_keys_list = list(self.commands.keys())
-        found = False
-        for item in command_keys_list:
-            if str(input[2].upper()) == str(item):
-                found = True
-                break
-        if not found:
+        if input[2].upper() not in self.commands:
             print("Error command not found!")
             return None
         commandfunc = self.commands[input[2].upper()]
