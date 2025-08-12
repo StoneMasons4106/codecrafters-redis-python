@@ -18,9 +18,10 @@ async def handle_connection(reader, writer):
             break
         print(f"Received command: {line}")
         input_data = line.split()
+        print(input_data)
         output = await command_processor.process(input_data)
         if output is None:
-            response = "Error: Command not found"
+            response = b"+Error: Command not found\r\n"
         elif isinstance(output, str):
             response = f"+{output}\r\n"
         else:
