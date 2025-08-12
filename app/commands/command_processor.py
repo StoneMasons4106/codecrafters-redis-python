@@ -54,6 +54,6 @@ class CommandProcessor:
         commandfunc = self.commands[input[2].upper()]
         # unpack arguments are the function arguments
         # order matters here
-        output = await commandfunc(*input[1:])
+        output = await commandfunc(*input[3:])
         return output
 
