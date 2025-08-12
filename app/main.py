@@ -5,8 +5,9 @@ from .resp2 import format_response, format_error
 import asyncio
 
 async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    data = await reader.read(4096)  # Read up to 4096 bytes from the stream
     resp_parser = RespParser()
-    parser = resp_parser.parse(reader)
+    parser = resp_parser.parse(data)
     addr = writer.get_extra_info("peername")
     print(f"New connection from {addr}")
 
