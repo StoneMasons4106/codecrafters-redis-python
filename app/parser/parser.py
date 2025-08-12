@@ -1,52 +1,33 @@
-import os
-import sys
-import re
+class RespParser:
+    def parse(self, data: bytes) -> list[bytes | None]:
+        """
+        Turn a chunk of RESP bytes into a list of command parts (e.g., ["SET", "foo", "bar"]).
+        RESP command look like: *3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n
+        """
+        if not data:
+            return []
+        lines = data.split(b"\r\n")
+        self._check_not_empty(lines)
 
-class Parser:
+        lines = [line for line in lines if line]
+        num_parts = self._parse_array_header(lines[0])
+        command = []
+        current_line = 1  # Start after *n
 
-    def __init__(self, file_path='', redis='', delimeter=',', pipe=False):
-        rows = self.read_stdin() if pipe else self.read_file(file_path)
+        for _ in range(num_parts):
+            if current_line >= len(lines):
+                raise ValueError("Ran out of lines before finishing the command")
+            part_length = self._parse_bulk_string_length(lines[current_line])
+            current_line += 1
 
-        # Validate command:
-        if not re.findall(r"({[[0-9]+})+", redis):
-            error = 'Redis command pattern is invalid: "{}"'.format(redis)
-            raise AttributeError(error)
+            if part_length == -1:
+                command.append(None)  # Null bulk string, no data line
+            else:
+                if current_line >= len(lines):
+                    raise ValueError("Missing the data after the length line")
+                command.append(
+                    self._parse_bulk_string(lines[current_line], part_length)
+                )
+                current_line += 1
 
-        # Iterate over the rows:
-        for row in rows:
-            parts = row.split(delimeter)
-            for r in redis.split('|'):
-                cmd = r.strip()
-                cmd = cmd.format(*parts)
-                cmd = Parser.convert_cmd(cmd)
-                cmd = list(cmd)
-                cmd = Parser.concat_cmd(cmd)
-                sys.stdout.write(cmd)
-
-    @staticmethod
-    def convert_cmd(cmd, resp_pattern='${}\r\n{}'):
-        for part in cmd.split():
-            size = str(len(str(part).encode('utf8')))
-            yield resp_pattern.format(size, str(part))
-
-    @staticmethod
-    def concat_cmd(cmd, resp_pattern='*{}\r\n{}\r\n'):
-        size = str(len(cmd))
-        cmd = '\r\n'.join(cmd)
-        return resp_pattern.format(size, cmd)
-
-    @staticmethod
-    def read_stdin():
-        data = sys.stdin.read()
-        rows = data.strip().split('\n')
-        return rows
-
-    @staticmethod
-    def read_file(file_path):
-        if not file_path or not os.path.isfile(file_path):
-            error = 'File not found: "{}"'.format(file_path)
-            raise AttributeError(error)
-        with open(file_path, 'r') as file_:
-            data = file_.read()
-            rows = data.strip().split('\n')
-            return rows
+        return command
