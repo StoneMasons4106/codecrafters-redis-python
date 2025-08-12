@@ -2,7 +2,7 @@ import socket  # noqa: F401
 import threading
 from app.commands import ping, echo
 from app.parser.parser import Parser
-from app.resp2 import format_response, format_error
+from .resp2 import format_response, format_error
 import asyncio
 
 async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -82,7 +82,7 @@ def main():
     server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
     while True:
         client_socket, client_addr = server_socket.accept()
-        threading.Thread(target=handle_connection, args=(client_socket,)).start()
+        threading.Thread(target=handle_connection, args=(client_socket, client_addr,)).start()
 
 
 if __name__ == "__main__":
