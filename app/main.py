@@ -16,13 +16,10 @@ async def handle_connection(reader, writer):
         if line == "QUIT":
             print("Received QUIT command, closing connection.")
             break
-        print(f"Received command: {line}")
         input_data = line.split()
         output = await command_processor.process(input_data)
         if output is None:
             response = b"+Error: Command not found\r\n"
-        elif isinstance(output, str):
-            response = f"+{output}\r\n"
         else:
             response = output.encode("utf-8") + b"\r\n"
         print(f"Sending response: {response}")
