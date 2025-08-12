@@ -20,6 +20,8 @@ async def handle_connection(reader, writer):
         output = await command_processor.process(input_data)
         if output is None:
             response = b"+Error: Command not found\r\n"
+        elif isinstance(output, str):
+            response = b"+" + output.encode("utf-8") + b"\r\n"
         else:
             response = output.encode("utf-8") + b"\r\n"
         print(f"Sending response: {response}")
