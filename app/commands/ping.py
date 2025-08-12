@@ -1,7 +1,7 @@
 COMMAND = "ping"
 
 
-async def handle_command(message: str) -> str:
+def handle_command(message: str) -> str:
     """Handle PING command by returning PONG.
 
     Args:

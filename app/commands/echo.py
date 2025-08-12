@@ -1,7 +1,7 @@
 COMMAND = "echo"
 
 
-async def handle_command(message: str) -> str:
+def handle_command(message: str) -> str:
     """Handle ECHO command by returning the input message.
 
     Args:
