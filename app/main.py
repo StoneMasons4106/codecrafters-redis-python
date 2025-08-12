@@ -1,5 +1,4 @@
 import socket  # noqa: F401
-import threading
 from app.commands import ping, echo
 from app.parser.parser import RespParser
 from .resp2 import format_response, format_error
@@ -83,7 +82,7 @@ def main():
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     while True:
         client_socket, client_addr = server_socket.accept()
-        threading.Thread(target=asyncio.run, args=(handle_connection(client_socket, client_addr,))).start()
+        asyncio.run(handle_connection(client_socket, client_addr))
 
 
 if __name__ == "__main__":
