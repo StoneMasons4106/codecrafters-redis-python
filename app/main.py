@@ -4,19 +4,19 @@ from app.commands import ping, echo
 
 BUF_SIZE = 4096
 
-async def handle_connection(client: socket.socket):
+def handle_connection(client: socket.socket):
     while chunk := client.recv(BUF_SIZE):
         if chunk == b"PING":
-            response = await ping.handle_command()
+            response = ping.handle_command()
         elif chunk == b"ECHO" and len(chunk) > 1:
             message_text = (
                 chunk[1].decode("utf-8")
                 if isinstance(chunk[1], bytes)
                 else chunk[1]
             )
-            response = await echo.handle_command(message_text)
+            response = echo.handle_command(message_text)
         else:
-            response = await b"+Unknown command\r\n"
+            response = b"+Unknown command\r\n"
         client.sendall(response.encode("utf-8") if isinstance(response, str) else response)
 
 def main():
