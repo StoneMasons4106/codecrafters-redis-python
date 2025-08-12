@@ -34,10 +34,10 @@ class CommandProcessor:
     def __init__(self, data_oracle) -> None:
         self.commands = {}
         # partial of async def requries python >=3.8
-        self.commands["PING"] = processPing
-        self.commands["ECHO"] = partial(processEcho, data_oracle)
         self.commands["SET"] = partial(processSet, data_oracle)
         self.commands["GET"] = partial(processGet, data_oracle)
+        self.commands["PING"] = processPing
+        self.commands["ECHO"] = partial(processEcho, data_oracle)
         self.data_oracle = data_oracle
 
     async def process(self, input):
@@ -48,7 +48,6 @@ class CommandProcessor:
             # return "+PONG\r\n"
             return "PONG"
         assert len(input) > 0
-        print(self.commands)
         if input[2].upper() not in self.commands:
             print("Error command not found!")
             return None
