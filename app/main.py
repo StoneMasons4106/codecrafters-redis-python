@@ -1,12 +1,14 @@
 import asyncio
 from .commands.command_processor import CommandProcessor
+from data_oracle import DataOracle
 
 async def handle_connection(reader, writer):
     addr = writer.get_extra_info("peername")
     print(f"Connection from {addr}")
     while True:
         line = await reader.read(4096)
-        command_processor = CommandProcessor(data_oracle=CommandProcessor.data_oracle)
+        data_oracle = DataOracle()
+        command_processor = CommandProcessor(data_oracle)
         if not line:
             print("No data received, closing connection.")
             break
