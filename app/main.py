@@ -1,5 +1,5 @@
 import asyncio
-from commands.command_processor import CommandProcessor
+from .commands.command_processor import CommandProcessor
 
 async def handle_connection(reader, writer):
     addr = writer.get_extra_info("peername")
