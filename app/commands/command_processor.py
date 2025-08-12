@@ -49,7 +49,7 @@ class CommandProcessor:
             return "PONG"
         assert len(input) > 0
         command_keys_list = list(self.commands.keys())
-        print(f"Command keys list: {command_keys_list}")
+        print(input[2].upper(), command_keys_list)
         if input[2].upper() not in command_keys_list:
             print("Error command not found!")
             return None
