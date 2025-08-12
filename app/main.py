@@ -1,33 +1,32 @@
-import re
 import asyncio
-from .parser.parser import parse, encode, encode_simple
+from commands.command_processor import CommandProcessor
 
 async def handle_connection(reader, writer):
     addr = writer.get_extra_info("peername")
     print(f"Connection from {addr}")
     while True:
-        line = await reader.read(100)
-        if line == b"":
+        line = await reader.read(4096)
+        command_processor = CommandProcessor(data_oracle=CommandProcessor.data_oracle)
+        if not line:
+            print("No data received, closing connection.")
             break
-        parsed = parse(line, 0)
-        if parsed:
-            (_, res) = parsed
-            command = res[0]
-            if command == "COMMAND":
-                # Respond with empty map for initial COMMAND request
-                writer.write(b"%0\r\n")
-                await writer.drain()
-                continue
-            if re.search("ECHO", command, flags=re.IGNORECASE):
-                # reply = b"$" + str(len(value)).encode() + b"\r\n" + value + b"\r\n"
-                value = res[1]
-                reply = encode(value)
-                writer.write(reply)
-                await writer.drain()
-            if re.search("PING", command, flags=re.IGNORECASE):
-                reply = encode_simple("PONG")
-                writer.write(reply)
-                await writer.drain()
+        line = line.decode("utf-8").strip()
+        if line == "QUIT":
+            print("Received QUIT command, closing connection.")
+            break
+        print(f"Received command: {line}")
+        input_data = line.split()
+        output = await command_processor.process(input_data)
+        if output is None:
+            response = "Error: Command not found"
+        elif isinstance(output, str):
+            response = f"+{output}\r\n"
+        else:
+            response = output.encode("utf-8") + b"\r\n"
+        print(f"Sending response: {response}")
+        writer.write(response)
+        await writer.drain()
+    print("Closing connection.")
     writer.close()
     await writer.wait_closed()
 
