@@ -24,7 +24,7 @@ async def handle_connection(reader: asyncio.StreamReader, writer: asyncio.Stream
                 command = (
                     message[0].upper()
                     if isinstance(message, list) and len(message) > 0
-                    else b""
+                    else await b""
                 )
 
                 try:
