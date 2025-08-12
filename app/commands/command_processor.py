@@ -51,7 +51,7 @@ class CommandProcessor:
         if input[2].upper() not in self.commands:
             print("Error command not found!")
             return None
-        commandfunc = self.commands[input[0].upper()]
+        commandfunc = self.commands[input[2].upper()]
         # unpack arguments are the function arguments
         # order matters here
         output = await commandfunc(*input[1:])
