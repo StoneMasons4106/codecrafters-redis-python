@@ -8,7 +8,7 @@ def handle_connection(client: socket.socket):
     while chunk := client.recv(BUF_SIZE):
         if chunk == b"PING":
             response = ping.handle_command()
-        elif chunk == b"ECHO" and len(chunk) > 1:
+        elif b"ECHO" in chunk[0]:
             message_text = (
                 chunk[1].decode("utf-8")
                 if isinstance(chunk[1], bytes)
